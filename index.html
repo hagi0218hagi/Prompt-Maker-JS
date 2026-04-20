@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>最適化プロンプトメーカー</title>
+
+  <!-- Google Fonts: モダンでクリーンなタイポグラフィ（Inter）を採用 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Markdownレンダリング用 (Marked.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- XSS対策としてのサニタイザー (DOMPurify) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.3/purify.min.js"></script>
+  <!-- おまけ機能: 紙吹雪のアニメーション用 (Canvas Confetti) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- ================= CSS セクション ================= -->
+  <!-- Tailwindライクなユーティリティ構成とモダンなUI/UXを実現するためのスタイル -->
+  <style>
+    /* CSS Variables: カラースキームとデザイン要素の定義 */
+    :root {
+      --primary-color: #6366f1; /* インディゴ系 */
+      --primary-hover: #4f46e5;
+      --bg-gradient-1: #e0c3fc;
+      --bg-gradient-2: #8ec5fc;
+      --surface-color: rgba(255, 255, 255, 0.7);
+      --surface-border: rgba(255, 255, 255, 0.5);
+      --text-main: #1f2937;
+      --text-muted: #6b7280;
+      --error-color: #ef4444;
+      --success-color: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* 背景：動的で美しいグラデーションメッシュレイアウト */
+    body {
+      background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
+      background-size: 200% 200%;
+      animation: gradientBG 15s ease infinite;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem 1rem;
+      line-height: 1.5;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* プレミアムなGlassmorphism（ガラス効果）カード */
+    .glass-container {
+      background: var(--surface-color);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--surface-border);
+      border-radius: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 800px;
+      padding: 2.5rem;
+      transition: all 0.3s ease;
+    }
+
+    /* タイトル群 */
+    .title-wrapper {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .title {
+      font-size: 2rem;
+      font-weight: 700;
+      background: -webkit-linear-gradient(45deg, #4f46e5, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* おみくじ機能のスタイル */
+    .btn-omikuji {
+      margin-top: 1rem;
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid var(--primary-color);
+      color: var(--primary-color);
+      padding: 0.4rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-omikuji:hover {
+      background: var(--primary-color);
+      color: white;
+    }
+    .omikuji-result {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: none;
+      animation: fadeIn 0.4s ease-out;
+    }
+    .omikuji-result.show {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* フォーム項目（Tailwindライクなグリッドと余白調整） */
+    .form-group {
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #374151;
+    }
+
+    /* 洗練された入力フィールド */
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .form-input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    select.form-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1.2em;
+    }
+    textarea.form-input {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    /* パスワードフィールドのヒント */
+    .api-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* リッチで動的なボタン */
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(99, 102, 241, 0.25);
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(99, 102, 241, 0.3);
+    }
+    .btn-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-submit.success {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 4px 6px rgba(16, 185, 129, 0.25);
+    }
+
+    /* ローディングアニメーション（Spinner） */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      display: none;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 出力エリア (フェード＆スライドインのアニメーション) */
+    .output-section {
+      margin-top: 2rem;
+      position: relative;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--surface-border);
+      display: none; /* 初期は非表示 */
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .output-section.visible {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.5rem;
+    }
+    .output-title {
+      font-weight: 600;
+      color: var(--primary-hover);
+    }
+
+    /* Markdown プレビューのスタイル調整 */
+    .markdown-body {
+      font-size: 0.95rem;
+      color: #374151;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 { margin: 1rem 0 0.5rem; }
+    .markdown-body ul, .markdown-body ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+    .markdown-body p { margin-bottom: 1rem; }
+    .markdown-body code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      font-family: monospace;
+      font-size: 0.85em;
+    }
+    .markdown-body pre {
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    /* クリップボードへコピー機能ボタン */
+    .btn-copy {
+      background: #f3f4f6;
+      color: #4b5563;
+      border: 1px solid #d1d5db;
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-copy:hover {
+      background: #e5e7eb;
+      color: #1f2937;
+    }
+    .btn-copy.copied {
+      background: var(--success-color);
+      color: white;
+      border-color: var(--success-color);
+    }
+
+    /* ステータスメッセージ領域 */
+    #status-msg {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.875rem;
+      font-weight: 500;
+      min-height: 1.2rem;
+    }
+    .text-error { color: var(--error-color); }
+
+    /* レスポンシブ対応 */
+    @media (max-width: 600px) {
+      .glass-container { padding: 1.5rem; }
+      .title { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= HTML 構成 ================= -->
+  <main class="glass-container">
+    <div class="title-wrapper">
+      <h1 class="title">AI Prompt Maker</h1>
+      <p class="subtitle">AIの力を引き出す、最適なプロンプトを自動生成します</p>
+      <button type="button" id="omikuji-btn" class="btn-omikuji">🎲 今日のプロンプト運勢を占う</button>
+      <div id="omikuji-result" class="omikuji-result"></div>
+    </div>
+
+    <!-- 入力フォーム -->
+    <form id="prompt-form">
+      <!-- セキュリティ：APIキーはパスワード形式で -->
+      <div class="form-group">
+        <label class="form-label" for="api-key">Gemini API Key</label>
+        <input type="password" id="api-key" class="form-input" placeholder="AIzaSy..." required>
+        <p class="api-hint">※ APIキーはブラウザ上でのみ使用され、どこにも保存・送信されません。</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="role">AIの役割（Role）</label>
+        <input type="text" id="role" class="form-input" placeholder="例：プロのUXデザイナー、熟練のPythonエンジニア" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="goal">目的・タスク（Goal）</label>
+        <textarea id="goal" class="form-input" placeholder="例：新しいマッチングアプリのペルソナ設計を作ってほしい" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="format">出力形式（Format）</label>
+        <select id="format" class="form-input">
+          <option value="箇条書きで分かりやすく整理する">箇条書きで整理</option>
+          <option value="表形式にして比較しやすくする">表形式（テーブル）</option>
+          <option value="ステップバイステップのガイド形式">ステップバイステップ（手順）</option>
+          <option value="SNS（Twitter/Xなど）投稿風のカジュアルなトーン">SNS投稿風</option>
+          <option value="Markdown構造を駆使した詳細なレポート形式">詳細なレポート（Markdown）</option>
+        </select>
+      </div>
+
+      <button type="submit" id="submit-btn" class="btn-submit">
+        <span class="spinner" id="btn-spinner"></span>
+        <span id="btn-text">最適なプロンプトを生成する</span>
+      </button>
+
+      <div id="status-msg"></div>
+    </form>
+
+    <!-- 結果表示エリア（生成が完了するとアニメーション付きで表示） -->
+    <div id="output-section" class="output-section">
+      <div class="output-header">
+        <span class="output-title">✨ 生成されたプロンプト</span>
+        <button type="button" id="copy-btn" class="btn-copy">コピー</button>
+      </div>
+      <!-- 安全のためDOMPurifyを通したマークダウンがここに入ります -->
+      <div id="markdown-preview" class="markdown-body"></div>
+    </div>
+  </main>
+
+  <!-- ================= JavaScript ロジック ================= -->
+  <!-- Import Map により npmパッケージをURL経由でインポート可能にする -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@google/generative-ai": "https://esm.run/@google/generative-ai"
+      }
+    }
+  </script>
+
+  <script type="module">
+    // CDN経由で Generative AI SDK をインポート
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+
+    // DOM要素の取得
+    const form = document.getElementById('prompt-form');
+    const btnText = document.getElementById('btn-text');
+    const btnSpinner = document.getElementById('btn-spinner');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusMsg = document.getElementById('status-msg');
+    
+    const outputSection = document.getElementById('output-section');
+    const markdownPreview = document.getElementById('markdown-preview');
+    const copyBtn = document.getElementById('copy-btn');
+    
+    const omikujiBtn = document.getElementById('omikuji-btn');
+    const omikujiResult = document.getElementById('omikuji-result');
+
+    // おみくじ機能のロジック
+    const fortunes = [
+      { luck: "大吉", message: "最高のプロンプトが閃く予感！AIがあなたの意図を完璧に汲み取ります。", color: "#059669", bg: "#d1fae5" },
+      { luck: "吉", message: "良いアイデアが出そうです！役割（Role）を少し具体的にするとさらにGood。", color: "#2563eb", bg: "#dbeafe" },
+      { luck: "中吉", message: "手堅いプロンプトが書けそうです。目的（Goal）を明確に保ちましょう。", color: "#d97706", bg: "#fef3c7" },
+      { luck: "小吉", message: "まずはシンプルな指示から始めて、AIの反応を見つつ調整するのが吉。", color: "#4f46e5", bg: "#e0e7ff" },
+      { luck: "凶", message: "ハルシネーション（幻覚）に注意！出力形式をしっかり指定してAIを制御しましょう。", color: "#dc2626", bg: "#fee2e2" },
+      { luck: "大凶", message: "AIが暴走するかも…？深呼吸して、前提条件をもう一度見直しましょう。", color: "#991b1b", bg: "#fecaca" }
+    ];
+
+    omikujiBtn.addEventListener('click', () => {
+      const randomIndex = Math.floor(Math.random() * fortunes.length);
+      const fortune = fortunes[randomIndex];
+
+      omikujiResult.innerHTML = `<span style="font-size: 1.1rem; margin-right: 0.5rem;">【${fortune.luck}】</span> ${fortune.message}`;
+      omikujiResult.style.color = fortune.color;
+      omikujiResult.style.backgroundColor = fortune.bg;
+      
+      // アニメーションを再トリガーするためのリセット
+      omikujiResult.classList.remove('show');
+      setTimeout(() => {
+        omikujiResult.classList.add('show');
+        if (fortune.luck === "大吉") {
+          confetti({ particleCount: 80, spread: 60, origin: { y: 0.3 } });
+        }
+      }, 10);
+    });
+
+    // 生成された生のプロンプトテキストを保持する変数
+    let rawGeneratedPrompt = "";
+
+    // フォーム送信時のイベント処理
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // 入力値の取得
+      const apiKey = document.getElementById('api-key').value.trim();
+      const role = document.getElementById('role').value.trim();
+      const goal = document.getElementById('goal').value.trim();
+      const format = document.getElementById('format').value;
+
+      // 状態をローディングに変更
+      setLoadingState(true);
+      statusMsg.textContent = "AIがあなたの意図を汲み取り、最高品質のプロンプトを考案中...";
+      statusMsg.className = "";
+      outputSection.classList.remove('visible');
+
+      try {
+        // SDKの初期化（軽量で高速な gemini-1.5-flash モデルを使用）
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        // メタ・プロンプト（プロンプト生成のための指示書）
+        const systemPrompt = `あなたは世界最高峰の「プロンプトエンジニア」および「AIコンサルタント」です。
+ユーザーから渡される【役割】【目的】【出力形式】の入力をもとに、LLM(言語モデル)が高精度な回答を出力できるような『強力で明確なプロンプト』として再構築してください。
+
+以下のベストプラクティスをプロンプト構造に組み込むこと:
+1. 制約条件（Constraints / Rules）の明確化
+2. 回答の評価基準（Evaluation Criteria）の明記
+3. 対象読者や前提の補足
+4. 指定された出力形式に従わせる強力な指示
+
+出力は「生成されたプロンプト本文のみ」とします。あなたの説明テキストや「承知しました」などの前置き・後書きは一切書かないでください。出力はMarkdown形式とします。`;
+
+        const userPrompt = `以下の情報から、AIへの指示書（プロンプト）を作成してください。
+【役割】: ${role}
+【目的】: ${goal}
+【出力形式】: ${format}
+`;
+
+        // LLMAPIの呼び出し（メタ・プロンプトとユーザー制約を同時に渡す）
+        const result = await model.generateContent([
+          { text: systemPrompt },
+          { text: userPrompt }
+        ]);
+
+        const responseText = await result.response.text();
+        rawGeneratedPrompt = responseText.trim();
+
+        // 成功時のUI更新
+        displayResult(rawGeneratedPrompt);
+        triggerSuccessFeedback();
+
+      } catch (error) {
+        console.error(error);
+        statusMsg.textContent = `エラー: APIキーが間違っているか、ネットワークの問題が発生しました。 (${error.message})`;
+        statusMsg.className = "text-error";
+        setLoadingState(false);
+      }
+    });
+
+    // クリップボードへコピー機能
+    copyBtn.addEventListener('click', async () => {
+      if (!rawGeneratedPrompt) return;
+      
+      try {
+        await navigator.clipboard.writeText(rawGeneratedPrompt);
+        // コピー成功の視覚的フィードバック
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = '完了！';
+        copyBtn.classList.add('copied');
+        
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        alert('クリップボードへのコピーに失敗しました。');
+      }
+    });
+
+    // --- ユーティリティ関数群 ---
+
+    // ボタンのローディング状態管理
+    function setLoadingState(isLoading) {
+      submitBtn.disabled = isLoading;
+      if (isLoading) {
+        btnSpinner.style.display = 'inline-block';
+        btnText.textContent = '生成中...';
+      } else {
+        btnSpinner.style.display = 'none';
+        btnText.textContent = '最適なプロンプトを生成する';
+        submitBtn.classList.remove('success'); // 元の色に戻す
+      }
+    }
+
+    // 生成結果の描画と表示アニメーション
+    function displayResult(markdownText) {
+      // markedでHTML化し、DOMPurifyでサニタイズ（XSS防御）
+      const cleanHTML = DOMPurify.sanitize(marked.parse(markdownText));
+      markdownPreview.innerHTML = cleanHTML;
+      
+      // 結果セクションのフェードアニメーション
+      outputSection.classList.add('visible');
+    }
+
+    // 生成成功時のおまけ演出（ボタンの変色 ＆ 紙吹雪）
+    function triggerSuccessFeedback() {
+      // ボタンデザインを成功色に
+      btnSpinner.style.display = 'none';
+      btnText.textContent = '✨ 生成完了 ✨';
+      submitBtn.classList.add('success');
+      submitBtn.disabled = false;
+      statusMsg.textContent = "";
+
+      // 紙吹雪を舞わせる（canvas-confetti）
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#6366f1', '#ec4899', '#10b981', '#f59e0b']
+      });
+
+      // 3秒後にボタンの文言を元に戻す
+      setTimeout(() => {
+        setLoadingState(false);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
