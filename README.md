@@ -2,7 +2,7 @@
 
 AIの力を最大限に引き出すための、最適なプロンプトを自動生成・調整できるWEBアプリケーションです。
 HTML、CSS、JavaScript（Vanilla JS）のみで構成された、軽量で安全に動作する完全フロントエンドツールです。
-👉 **[デモサイト（GitHub Pages）で動かしてみる](https://warahagi.github.io/Prompt-Maker-JS)**
+**🔗 [デモ（アプリを試す）はこちら](https://warahagi.github.io/Prompt-Maker-JS/)**
 
 ---
 
@@ -28,7 +28,7 @@ HTML、CSS、JavaScript（Vanilla JS）のみで構成された、軽量で安�
 
 ## 🚀 使い方
 
-1. **デモサイトにアクセス**するか、このリポジトリをクローンして `index.html` をブラウザで開きます。
+1. **[デモページ](https://warahagi.github.io/Prompt-Maker-JS/)**にアクセスします（またはローカルで `index.html` を開きます）。
 2. **Gemini API Key** を入力します。
    - ※ APIキーをお持ちでない場合は、[Google AI Studio](https://aistudio.google.com/) から無料で発行できます。
 3. AIに演じさせたい **「AIの役割（Role）」**（例：*プロのUXデザイナー、熟練のPythonエンジニア*）を入力します。
